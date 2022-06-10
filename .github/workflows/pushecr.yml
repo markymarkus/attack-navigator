@@ -1,0 +1,37 @@
+name: Basic ECR push
+
+on:
+  push:
+    branches: [ master ]
+
+env:
+  AWS_REGION: eu-west-1
+  ECR_REPONAME: markus-throwaway-repo
+
+jobs:
+  cf_deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    outputs:
+      env-name: ${{ steps.env-name.outputs.environment }}
+    steps:
+      - uses: actions/checkout@v2
+        name: Checkout Repository
+      - uses: aws-actions/configure-aws-credentials@v1
+        with:
+          role-to-assume: ${{ secrets.IAMROLE_GITHUB }}
+          role-session-name: GitHub-Action-Role
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+      - name: Build, tag, and push image to Amazon ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ env.ECR_REPONAME }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
